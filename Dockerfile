@@ -7,6 +7,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./
 
-RUN date -u +'%Y-%m-%d_%H-%M' > version.txt
 
 CMD ["python", "-u", "bot.py"]
