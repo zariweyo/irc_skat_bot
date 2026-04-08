@@ -1,0 +1,17 @@
+# fly.toml — configuración de la app en Fly.io
+# Cambia "irc-bot-steve" por el nombre que elijas en fly.io
+
+app = "irc-bot-steve"
+primary_region = "mad"  # Madrid, más cercano a chat-hispano
+
+[build]
+  dockerfile = "Dockerfile"
+
+# El bot no expone ningún puerto HTTP, es un worker puro
+[processes]
+  app = "python -u bot.py"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
