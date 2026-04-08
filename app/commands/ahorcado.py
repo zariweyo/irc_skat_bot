@@ -73,12 +73,12 @@ def _cargar_palabras():
 def _tablero(nick_iniciador=None):
     import state
     d = state.game_data
-    errores = len(d["falladas"])
+    errores = min(len(d["falladas"]), len(GALLOWS) - 1)
     gallows = GALLOWS[errores]
 
     palabra = d["palabra"]
     adivinadas = d["adivinadas"]
-    tablero_palabra = " ".join(l if l in adivinadas else "_" for l in palabra)
+    tablero_palabra = " ".join(l if l in adivinadas else "?" for l in palabra)
     falladas_str = " ".join(sorted(d["falladas"])).upper() if d["falladas"] else "-"
 
     lineas = list(gallows)
@@ -111,6 +111,10 @@ def handle_input(texto, nick):
     d = state.game_data
     texto = texto.strip().lower()
     palabra = d["palabra"]
+
+    # Ignorar comentarios: tiene espacios o es más largo que la palabra
+    if " " in texto or len(texto) > len(palabra):
+        return None
 
     # Intento de palabra completa
     if len(texto) > 1:
