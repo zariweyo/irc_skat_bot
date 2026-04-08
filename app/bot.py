@@ -15,7 +15,7 @@ PORT = 6667
 NICK = "SteveMacuin"
 USER = "steve"
 REALNAME = "Steve McQueen"
-CHANNEL = "#skat"
+CHANNEL = "#skateros"
 
 def send(sock, msg):
     print(f">> {msg}")
