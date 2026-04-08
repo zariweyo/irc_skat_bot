@@ -1,5 +1,8 @@
 import socket
 import time
+import random
+import sys
+import traceback
 import commands
 import state
 import healthcheck
@@ -144,6 +147,12 @@ def main():
             if line.startswith("PING"):
                 send(sock, line.replace("PING", "PONG"))
 
+            # 433 = ERR_NICKNAMEINUSE -> probar con sufijo aleatorio
+            if " 433 " in line:
+                actual_nick = f"{NICK}{random.randint(100, 999)}"
+                print(f"Nick en uso, probando: {actual_nick}")
+                send(sock, f"NICK {actual_nick}")
+
             # 001 = RPL_WELCOME  ->  ":server 001 actual_nick :Welcome..."
             if " 001 " in line:
                 actual_nick = line.split(" ")[2]
@@ -187,22 +196,31 @@ def main():
                     print(f"  [{nick}]: {mensaje}")
 
                     # Detectar comandos: "steve <cmd> [args...]"
-                    partes = mensaje.split()
-                    if len(partes) >= 2 and partes[0].lower() == "steve":
-                        cmd = partes[1].lower()
-                        args = partes[2:]
-                        respuesta = commands.dispatch(cmd, args, nick)
-                    elif state.active_game:
-                        respuesta = commands.handle_input(mensaje, nick)
-                    else:
-                        respuesta = None
-
-                    if respuesta:
-                        if isinstance(respuesta, list):
-                            for linea in respuesta:
-                                send(sock, f"PRIVMSG {CHANNEL} :{linea}")
+                    try:
+                        partes = mensaje.split()
+                        if len(partes) >= 2 and partes[0].lower() == "steve":
+                            cmd = partes[1].lower()
+                            args = partes[2:]
+                            respuesta = commands.dispatch(cmd, args, nick)
+                        elif state.active_game:
+                            respuesta = commands.handle_input(mensaje, nick)
                         else:
-                            send(sock, f"PRIVMSG {CHANNEL} :{respuesta}")
+                            respuesta = None
+
+                        if respuesta:
+                            if isinstance(respuesta, list):
+                                for linea in respuesta:
+                                    send(sock, f"PRIVMSG {CHANNEL} :{linea}")
+                            else:
+                                send(sock, f"PRIVMSG {CHANNEL} :{respuesta}")
+                    except Exception as e:
+                        msg = f"ERR: {type(e).__name__}: {e}"
+                        print(msg)
+                        traceback.print_exc()
+                        try:
+                            send(sock, f"PRIVMSG {CHANNEL} :{msg}")
+                        except Exception:
+                            pass
 
     except KeyboardInterrupt:
         print("\nInterrumpido por el usuario.")
@@ -210,6 +228,13 @@ def main():
     send(sock, "QUIT :hasta luego!")
     sock.close()
     print("Desconectado.")
+
+def _global_excepthook(exc_type, exc_value, exc_tb):
+    msg = f"ERR: {exc_type.__name__}: {exc_value}"
+    print(msg)
+    traceback.print_exception(exc_type, exc_value, exc_tb)
+
+sys.excepthook = _global_excepthook
 
 if __name__ == "__main__":
     main()

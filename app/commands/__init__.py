@@ -26,7 +26,7 @@ def dispatch(cmd, args, nick):
 
 def handle_input(texto, nick):
     """Pasa texto libre al juego activo, si lo hay."""
-    import app.state as state
+    import state
     if not state.active_game:
         return None
     registry = get_commands()
