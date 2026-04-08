@@ -2,6 +2,9 @@ import socket
 import time
 import commands
 import state
+import healthcheck
+
+healthcheck.start()
 
 # Configuración
 SERVER = "irc.chathispano.org"
