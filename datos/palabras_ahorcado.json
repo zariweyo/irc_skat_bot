@@ -1,0 +1,24 @@
+{
+  "palabras": [
+    "perro", "gato", "caballo", "elefante", "tigre", "leon", "ballena",
+    "delfin", "serpiente", "cocodrilo", "mariposa", "aguila", "lobo",
+    "zorro", "oso", "jirafa", "cebra", "gorila", "pingüino", "camello",
+    "españa", "francia", "italia", "portugal", "alemania", "mexico",
+    "argentina", "brasil", "colombia", "chile", "peru", "venezuela",
+    "japon", "china", "rusia", "india", "egipto", "grecia", "turquia",
+    "canada", "australia",
+    "pizza", "paella", "tortilla", "gazpacho", "churros", "chocolate",
+    "helado", "queso", "jamon", "tomate", "lechuga", "zanahoria",
+    "patata", "cebolla", "naranja", "manzana", "platano", "sandia",
+    "melon", "cereza",
+    "ordenador", "telefono", "ventana", "puerta", "espejo", "reloj",
+    "lampara", "paraguas", "maleta", "mochila", "camara", "guitarra",
+    "piano", "violin", "tambor",
+    "montana", "desierto", "volcan", "tornado", "nieve", "relampago",
+    "arcoiris", "bosque", "cascada", "oceano",
+    "futbol", "baloncesto", "tenis", "natacion", "ciclismo", "atletismo",
+    "boxeo", "voleibol", "rugby", "beisbol",
+    "castillo", "palacio", "hospital", "biblioteca", "mercado",
+    "aeropuerto", "estacion", "universidad", "catedral", "museo"
+  ]
+}
