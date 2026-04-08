@@ -71,7 +71,7 @@ def _cargar_palabras():
         return json.load(f)["palabras"]
 
 def _tablero(nick_iniciador=None):
-    import state
+    import app.state as state
     d = state.game_data
     errores = len(d["falladas"])
     gallows = GALLOWS[errores]
@@ -89,7 +89,7 @@ def _tablero(nick_iniciador=None):
     return lineas
 
 def run(args, nick):
-    import state
+    import app.state as state
     if state.active_game:
         return f"{nick}: ya hay un juego activo ({state.active_game}). Usa 'steve fin' para terminarlo."
 
@@ -107,7 +107,7 @@ def run(args, nick):
     return _tablero(nick_iniciador=nick)
 
 def handle_input(texto, nick):
-    import state
+    import app.state as state
     d = state.game_data
     texto = texto.strip().lower()
     palabra = d["palabra"]

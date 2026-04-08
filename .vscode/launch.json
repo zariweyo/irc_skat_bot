@@ -5,7 +5,7 @@
             "name": "IRC Bot",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/bot.py",
+            "program": "${workspaceFolder}/app/bot.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }

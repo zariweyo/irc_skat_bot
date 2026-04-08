@@ -1,7 +1,7 @@
 DESCRIPTION = "Finaliza cualquier juego o actividad en curso."
 
 def run(args, nick):
-    import state
+    import app.state as state
     if not state.active_game:
         return f"{nick}: no hay ningún juego activo en este momento."
 
