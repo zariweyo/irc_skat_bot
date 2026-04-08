@@ -8,6 +8,15 @@
             "program": "${workspaceFolder}/app/bot.py",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "IRC Bot (debug)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app/debug.py",
+            "args": ["--nick", "Tester"],
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }
