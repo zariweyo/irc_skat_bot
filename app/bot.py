@@ -153,6 +153,14 @@ def main():
                     send(sock, line.replace("PING", "PONG"))
                     continue
 
+                # Saludo a nuevos usuarios que entran al canal
+                if " JOIN " in line and "!" in line:
+                    join_nick = line.split("!")[0].lstrip(":")
+                    if join_nick != actual_nick:
+                        join_channel = line.split(" JOIN ")[-1].strip().lstrip(":")
+                        if join_channel in CHANNELS:
+                            send(sock, f"PRIVMSG {join_channel} :Hola {join_nick}, soy Steve, el bot de juegos. Escribe 'steve help' para saber mas.")
+
                 line_upper = line.upper()
                 for channel in CHANNELS:
                     if f"PRIVMSG {channel.upper()} :" in line_upper:
