@@ -1,4 +1,5 @@
 import socket
+import ssl
 import threading
 import queue
 import time
@@ -13,8 +14,8 @@ import healthcheck
 healthcheck.start()
 
 # Configuración
-SERVER   = "irc.chathispano.org"
-PORT     = 6667
+SERVER   = "ssl.chathispano.com"
+PORT     = 6697
 NICK     = "SteveMacuin"
 USER     = "steve"
 REALNAME = "Steve McQueen"
@@ -28,7 +29,11 @@ def send(sock, msg):
         sock.sendall((msg + "\r\n").encode("utf-8"))
 
 def connect():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    raw_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    sock = ctx.wrap_socket(raw_sock, server_hostname=SERVER)
     sock.connect((SERVER, PORT))
     sock.settimeout(5)
     print(f"Conectado a {SERVER}:{PORT}")

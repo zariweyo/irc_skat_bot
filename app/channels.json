@@ -1,7 +1,7 @@
 [
     {
         "channel": "debug",
-        "commands": ["help", "ahorcado"]
+        "commands": ["help", "ahorcado", "fin"]
     },
     {
         "channel": "#skateros",
@@ -9,6 +9,6 @@
     },
     {
         "channel": "#ahorcado",
-        "commands": ["help", "ahorcado"]
+        "commands": ["help", "ahorcado", "fin"]
     }
 ]
