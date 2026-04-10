@@ -32,4 +32,10 @@ class _StateModule:
     def game_data(self, val):
         self._local.game_data = val
 
+    @property
+    def scores(self):
+        if not hasattr(self._local, 'scores'):
+            self._local.scores = {}
+        return self._local.scores
+
 sys.modules[__name__] = _StateModule()

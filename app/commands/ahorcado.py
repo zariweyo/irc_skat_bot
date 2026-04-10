@@ -34,8 +34,23 @@ def _tablero(nick_iniciador=None):
         lineas.append(_linea_jugador(nick, datos["fallos"]))
     return lineas
 
+def _letras_desconocidas(d):
+    """Número de posiciones únicas en la palabra que aún no han sido adivinadas."""
+    return len(set(c for c in d["palabra"] if c not in d["adivinadas"]))
+
+def _sumar_puntos(nick, puntos):
+    import state
+    state.scores[nick] = state.scores.get(nick, 0) + puntos
+
+def _score_line():
+    import state
+    if not state.scores:
+        return None
+    partes = [f"[{nick} => {pts}pts]" for nick, pts in
+              sorted(state.scores.items(), key=lambda x: -x[1])]
+    return "Score: " + " ".join(partes)
+
 def _todos_eliminados(d):
-    """True si hay al menos un jugador y todos han agotado sus fallos."""
     jugadores = d["jugadores"]
     return bool(jugadores) and all(j["fallos"] >= MAX_ERRORES for j in jugadores.values())
 
@@ -79,12 +94,16 @@ def handle_input(texto, nick):
     # --- Intento de palabra completa ---
     if len(texto) > 1:
         if texto == palabra:
+            puntos = _letras_desconocidas(d) * 5
+            _sumar_puntos(nick, puntos)
+            lineas = [
+                f"Palabra:  {' '.join(palabra)}",
+                f"CORRECTO! {nick} ha adivinado la palabra: {palabra.upper()}! +{puntos}pts",
+                _score_line(),
+            ]
             state.active_game = None
             state.game_data   = {}
-            return [
-                f"Palabra:  {' '.join(palabra)}",
-                f"CORRECTO! {nick} ha adivinado la palabra: {palabra.upper()}!",
-            ]
+            return lineas
         else:
             d["jugadores"][nick]["fallos"] += 1
             fallos = d["jugadores"][nick]["fallos"]
@@ -112,10 +131,13 @@ def handle_input(texto, nick):
         return f"{nick}: la letra '{letra.upper()}' ya fue usada."
 
     if letra in palabra:
+        puntos = _letras_desconocidas(d) * 5   # letras únicas aún desconocidas antes de este acierto
         d["adivinadas"].add(letra)
         lineas = _tablero()
         if all(c in d["adivinadas"] for c in palabra):
-            lineas.append(f"GANASTEIS! La palabra era: {palabra.upper()} - felicidades {nick}!")
+            _sumar_puntos(nick, puntos)
+            lineas.append(f"GANASTEIS! La palabra era: {palabra.upper()} - felicidades {nick}! +{puntos}pts")
+            lineas.append(_score_line())
             state.active_game = None
             state.game_data   = {}
         else:
