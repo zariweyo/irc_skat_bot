@@ -1,0 +1,14 @@
+[
+    {
+        "channel": "debug",
+        "commands": ["help", "ahorcado"]
+    },
+    {
+        "channel": "#skateros",
+        "commands": []
+    },
+    {
+        "channel": "#ahorcado",
+        "commands": ["help", "ahorcado"]
+    }
+]

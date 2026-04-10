@@ -38,4 +38,12 @@ class _StateModule:
             self._local.scores = {}
         return self._local.scores
 
+    @property
+    def current_channel(self):
+        return getattr(self._local, 'current_channel', None)
+
+    @current_channel.setter
+    def current_channel(self, val):
+        self._local.current_channel = val
+
 sys.modules[__name__] = _StateModule()

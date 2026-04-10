@@ -7,6 +7,7 @@ import sys
 import traceback
 import commands
 import state
+import channels
 import healthcheck
 
 healthcheck.start()
@@ -17,7 +18,7 @@ PORT     = 6667
 NICK     = "SteveMacuin"
 USER     = "steve"
 REALNAME = "Steve McQueen"
-CHANNELS = ["#skateros", "#ahorcado"]          # Añade canales aquí
+CHANNELS = channels.get_channels()             # Cargado desde channels.json (excluye "debug")
 
 _sock_lock = threading.Lock()
 
@@ -52,11 +53,15 @@ def channel_worker(sock, channel, q, actual_nick):
 
             print(f"  [{channel}] [{nick}]: {mensaje}")
 
+            state.current_channel = channel
             partes = mensaje.split()
             if len(partes) >= 2 and partes[0].lower() == "steve":
                 cmd      = partes[1].lower()
                 args     = partes[2:]
-                respuesta = commands.dispatch(cmd, args, nick)
+                if not channels.is_allowed(channel, cmd):
+                    respuesta = None
+                else:
+                    respuesta = commands.dispatch(cmd, args, nick)
             elif state.active_game:
                 respuesta = commands.handle_input(mensaje, nick)
             else:
