@@ -10,8 +10,11 @@ import commands
 import state
 import channels
 import healthcheck
+import db
+import bus
 
 healthcheck.start()
+db.init_db()
 
 # Configuración
 SERVER   = "ssl.chathispano.com"
@@ -50,6 +53,21 @@ def channel_worker(sock, channel, q, actual_nick):
             break
 
         try:
+            # ── Eventos internos (timers, comandos iniciales, etc.) ───────────
+            if isinstance(line, dict):
+                state.current_channel = channel
+                if "cmd" in line:
+                    respuesta = commands.dispatch(line["cmd"], line.get("args", []), actual_nick)
+                else:
+                    respuesta = commands.handle_input(line.get("msg", ""), line.get("nick", ""))
+                if respuesta:
+                    if isinstance(respuesta, list):
+                        for linea in respuesta:
+                            send(sock, f"PRIVMSG {channel} :{linea}")
+                    else:
+                        send(sock, f"PRIVMSG {channel} :{respuesta}")
+                continue
+
             nick    = line.split("!")[0].lstrip(":")
             mensaje = line.split(f"PRIVMSG {channel} :", 1)[-1].strip()
 
@@ -133,6 +151,8 @@ def main():
 
     # Lanzar un hilo trabajador por canal
     queues  = {ch: queue.Queue() for ch in CHANNELS}
+    for ch, q in queues.items():
+        bus.register(ch, q)
     workers = []
     for channel in CHANNELS:
         t = threading.Thread(
@@ -144,6 +164,9 @@ def main():
         t.start()
         workers.append(t)
         send(sock, f"PRIVMSG {channel} :hola! soy {actual_nick}. Escribe 'steve help' para ver los comandos disponibles.")
+        initial_cmd = channels.get_initial(channel)
+        if initial_cmd:
+            queues[channel].put({"cmd": initial_cmd, "args": []})
 
     print(f"\nBot activo en {', '.join(CHANNELS)}. Ctrl+C para salir.\n")
 

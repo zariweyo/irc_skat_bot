@@ -10,8 +10,12 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 import commands
 import state
+import db
+
+db.init_db()
 
 DEFAULT_NICK = "Tester"
+DEBUG_CHANNEL = "debug"
 
 def responder(respuesta):
     if respuesta is None:
@@ -46,6 +50,7 @@ def main():
             continue
 
         try:
+            state.current_channel = DEBUG_CHANNEL
             partes = texto.split()
             if len(partes) >= 2 and partes[0].lower() == "steve":
                 cmd = partes[1].lower()

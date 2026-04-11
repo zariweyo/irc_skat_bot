@@ -3,3 +3,4 @@ __pycache__/
 *.pyo
 .env
 app/version.txt
+data/

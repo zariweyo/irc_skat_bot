@@ -16,6 +16,10 @@ primary_region = 'ams'
   min_machines_running = 1
   processes = ['app']
 
+[[mounts]]
+  source      = "irc_bot_data"
+  destination = "/data"
+
 [[vm]]
   memory = '256mb'
   cpu_kind = 'shared'

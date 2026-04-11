@@ -7,5 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/ ./
 
+ENV DB_PATH=/data/irc_bot.db
+RUN mkdir -p /data
 
 CMD ["python", "-u", "bot.py"]

@@ -2,21 +2,25 @@
     {
         "channel": "debug",
         "commands": ["help", "ahorcado", "fin"],
-        "welcome": "Hola %NICK%, escribe 'steve help' para ver las opciones. Escribe 'steve ahorcado' para iniciar juego de ahorcado"
+        "welcome": "Hola %NICK%, escribe 'steve help' para ver las opciones. Escribe 'steve ahorcado' para iniciar juego de ahorcado",
+        "initial": ""
     },
     {
         "channel": "#skateros",
         "commands": [],
-        "welcome": "Hola %NICK%, soy Steve, el bot de juegos. Escribe 'steve help' para ver las opciones."
+        "welcome": "Hola %NICK%, soy Steve, el bot de juegos. Escribe 'steve help' para ver las opciones.",
+        "initial": ""
     },
     {
         "channel": "#ahorcado",
         "commands": ["help", "ahorcado", "fin"],
-        "welcome": "Hola %NICK%, soy Steve, el bot de juegos. Escribe 'steve help' para ver las opciones.  Escribe 'steve ahorcado' para iniciar juego de ahorcado"
+        "welcome": "Hola %NICK%, soy Steve, el bot de juegos. Escribe 'steve ahorcado' para iniciar juego de ahorcado. Escribe 'steve fin' para finalizar", 
+        "initial": "ahorcado"
     },
     {
         "channel": "#mentiras",
         "commands": ["help", "detector", "fin"],
-        "welcome": "Hola %NICK%, soy Steve, el bot de juegos. Escribe 'steve help' para ver las opciones.  Escribe 'steve detector OTRO_NICK' para iniciar el detector de mentiras"
+        "welcome": "Hola %NICK%, soy Steve, el bot de juegos. Escribe 'steve help' para ver las opciones.  Escribe 'steve detector OTRO_NICK' para iniciar el detector de mentiras",
+        "initial": ""
     }
 ]

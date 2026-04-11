@@ -1,10 +1,31 @@
 import json
 import random
+import threading
 from pathlib import Path
 
 DESCRIPTION = "Inicia una partida del ahorcado multijugador. Adivina la palabra letra a letra."
 
-MAX_ERRORES = 6
+MAX_ERRORES   = 6
+TIMEOUT_SECS  = 60
+
+_timers: dict[str, threading.Timer] = {}  # channel -> Timer activo
+
+def cancel_timer(channel: str) -> None:
+    t = _timers.pop(channel, None)
+    if t:
+        t.cancel()
+
+def _on_timeout(channel: str) -> None:
+    import bus
+    _timers.pop(channel, None)
+    bus.emit(channel, {"msg": "__timeout__", "nick": ""})
+
+def _reset_timer(channel: str) -> None:
+    cancel_timer(channel)
+    t = threading.Timer(TIMEOUT_SECS, _on_timeout, args=(channel,))
+    t.daemon = True
+    t.start()
+    _timers[channel] = t
 
 # ── mIRC format / color codes ────────────────────────────────────────────────
 RESET  = "\x0f"
@@ -65,7 +86,9 @@ def _letras_desconocidas(d):
 
 def _sumar_puntos(nick, puntos):
     import state
+    import db
     state.scores[nick] = state.scores.get(nick, 0) + puntos
+    db.add_points(nick, state.current_channel, "ahorcado", puntos)
 
 def _score_line():
     import state
@@ -86,8 +109,23 @@ def _cargar_palabras():
     with open(ruta, encoding="utf-8") as f:
         return json.load(f)["palabras"]
 
+def _puntos_globales(channel):
+    import db
+    top = db.get_top(channel=channel, limit=10)
+    if not top:
+        return _c("Aún no hay puntos registrados.", GRAY)
+    medallas = ["1°", "2°", "3°"]
+    lineas = [_c("Ranking global del ahorcado:", YELLOW, bold=True)]
+    for i, row in enumerate(top):
+        pos    = medallas[i] if i < len(medallas) else f"{i+1}°"
+        lineas.append(f"{pos} {_c(row['nick'], CYAN, bold=True)}: {_c(str(row['total']) + ' pts', YELLOW)}")
+    return lineas
+
 def run(args, nick):
     import state
+    if args and args[0].lower() == "puntos":
+        return _puntos_globales(state.current_channel)
+
     if state.active_game:
         return f"{nick}: ya hay un juego activo ({state.active_game}). Usa 'steve fin' para terminarlo."
 
@@ -103,12 +141,43 @@ def run(args, nick):
         "jugadores":  {},
     }
 
+    _reset_timer(state.current_channel)
     return _tablero(nick_iniciador=nick)
+
+def _handle_timeout(channel: str):
+    import state
+    d = state.game_data
+    palabras     = _cargar_palabras()
+    nueva_palabra = random.choice(palabras).lower()
+    d["palabra"]    = nueva_palabra
+    d["adivinadas"] = set()
+    d["falladas"]   = set()
+    for jugador in d["jugadores"].values():
+        jugador["fallos"] = 0
+    lineas = [_c("Tiempo sin actividad! Cambiando palabra...", YELLOW, bold=True)]
+    lineas += _tablero()
+    _reset_timer(channel)
+    return lineas
 
 def handle_input(texto, nick):
     import state
+    import commands
+    texto = texto.strip().lower()
+
+    # ── Timeout interno ───────────────────────────────────────────────────────
+    if texto == "__timeout__":
+        return _handle_timeout(state.current_channel)
+
+    # ── Reset timer por actividad del jugador ─────────────────────────────────
+    _reset_timer(state.current_channel)
+
+    # ── Alias de comandos durante la partida ──────────────────────────────────
+    if texto == "puntos":
+        return _puntos_globales(state.current_channel)
+    if texto == "fin":
+        return commands.dispatch("fin", [], nick)
+
     d       = state.game_data
-    texto   = texto.strip().lower()
     palabra = d["palabra"]
 
     # Ignorar mensajes con espacios o más largos que la palabra
@@ -135,6 +204,7 @@ def handle_input(texto, nick):
             score = _score_line()
             if score:
                 lineas.append(score)
+            cancel_timer(state.current_channel)
             state.active_game = None
             state.game_data   = {}
             return lineas
@@ -148,6 +218,7 @@ def handle_input(texto, nick):
                 lineas.append(f"{_c(nick, CYAN)}: '{_c(texto.upper(), RED)}' no es la palabra. ({fallos}/{MAX_ERRORES})")
             if _todos_eliminados(d):
                 lineas.append(_c(f"GAME OVER TOTAL! La palabra era: {palabra.upper()}", RED, bold=True))
+                cancel_timer(state.current_channel)
                 state.active_game = None
                 state.game_data   = {}
             return lineas
@@ -174,6 +245,7 @@ def handle_input(texto, nick):
             score = _score_line()
             if score:
                 lineas.append(score)
+            cancel_timer(state.current_channel)
             state.active_game = None
             state.game_data   = {}
         else:
@@ -190,6 +262,7 @@ def handle_input(texto, nick):
             lineas.append(f"{_c(nick, CYAN)}: '{_c(letra.upper(), RED, bold=True)}' fallo. ({fallos}/{MAX_ERRORES})")
         if _todos_eliminados(d):
             lineas.append(_c(f"GAME OVER TOTAL! La palabra era: {palabra.upper()}", RED, bold=True))
+            cancel_timer(state.current_channel)
             state.active_game = None
             state.game_data   = {}
         return lineas
