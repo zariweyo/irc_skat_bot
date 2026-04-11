@@ -6,15 +6,40 @@ DESCRIPTION = "Inicia una partida del ahorcado multijugador. Adivina la palabra 
 
 MAX_ERRORES = 6
 
-def _cargar_palabras():
-    ruta = Path(__file__).parent.parent / "datos" / "palabras_ahorcado.json"
-    with open(ruta, encoding="utf-8") as f:
-        return json.load(f)["palabras"]
+# ── mIRC format / color codes ────────────────────────────────────────────────
+RESET  = "\x0f"
+BOLD   = "\x02"
+GREEN  = "\x0309"   # lime green
+RED    = "\x0304"   # red
+YELLOW = "\x0308"   # yellow
+GRAY   = "\x0315"   # light gray
+DGRAY  = "\x0314"   # dark gray
+CYAN   = "\x0311"   # cyan
+
+def _c(text, color, bold=False):
+    b = BOLD if bold else ""
+    return f"{color}{b}{text}{RESET}"
+
+def _word_display(palabra, adivinadas):
+    parts = []
+    for l in palabra:
+        if l in adivinadas:
+            parts.append(_c(l.upper(), GREEN, bold=True))
+        else:
+            parts.append(_c("_", GRAY))
+    return " ".join(parts)
+
+def _falladas_display(falladas):
+    if not falladas:
+        return _c("-", GRAY)
+    return " ".join(_c(l.upper(), RED, bold=True) for l in sorted(falladas))
 
 def _linea_jugador(nick, fallos):
-    xs = "X" * fallos if fallos > 0 else "-"
-    sufijo = " GAME OVER" if fallos >= MAX_ERRORES else ""
-    return f"{nick} ({fallos}/{MAX_ERRORES}): {xs}{sufijo}"
+    vidas = MAX_ERRORES - fallos
+    if fallos >= MAX_ERRORES:
+        return f"{_c(nick, CYAN, bold=True)}: {_c('GAME OVER', RED, bold=True)}"
+    hearts = _c("♥" * vidas, GREEN) + _c("♥" * fallos, DGRAY)
+    return f"{_c(nick, CYAN, bold=True)}: {hearts} ({fallos}/{MAX_ERRORES})"
 
 def _tablero(nick_iniciador=None):
     import state
@@ -22,20 +47,20 @@ def _tablero(nick_iniciador=None):
 
     palabra    = d["palabra"]
     adivinadas = d["adivinadas"]
-    tablero_palabra = " ".join(l if l in adivinadas else "?" for l in palabra)
-    falladas_str    = " ".join(sorted(d["falladas"])).upper() if d["falladas"] else "-"
 
     lineas = []
     if nick_iniciador:
-        lineas.append(f"{nick_iniciador} ha iniciado el ahorcado!")
-    lineas.append(f"Palabra:  {tablero_palabra}")
-    lineas.append(f"Falladas: {falladas_str}")
+        lineas.append(f"{_c(nick_iniciador, CYAN, bold=True)} ha iniciado el ahorcado!")
+
+    lineas.append(f"Palabra:  {_word_display(palabra, adivinadas)}")
+    lineas.append(f"Falladas: {_falladas_display(d['falladas'])}")
+
     for nick, datos in d["jugadores"].items():
         lineas.append(_linea_jugador(nick, datos["fallos"]))
+
     return lineas
 
 def _letras_desconocidas(d):
-    """Número de posiciones únicas en la palabra que aún no han sido adivinadas."""
     return len(set(c for c in d["palabra"] if c not in d["adivinadas"]))
 
 def _sumar_puntos(nick, puntos):
@@ -46,13 +71,20 @@ def _score_line():
     import state
     if not state.scores:
         return None
-    partes = [f"[{nick} => {pts}pts]" for nick, pts in
-              sorted(state.scores.items(), key=lambda x: -x[1])]
-    return "Score: " + " ".join(partes)
+    partes = [
+        f"{_c(nick, CYAN, bold=True)}: {_c(str(pts) + 'pts', YELLOW, bold=True)}"
+        for nick, pts in sorted(state.scores.items(), key=lambda x: -x[1])
+    ]
+    return _c("Score: ", YELLOW, bold=True) + " | ".join(partes)
 
 def _todos_eliminados(d):
     jugadores = d["jugadores"]
     return bool(jugadores) and all(j["fallos"] >= MAX_ERRORES for j in jugadores.values())
+
+def _cargar_palabras():
+    ruta = Path(__file__).parent.parent / "datos" / "palabras_ahorcado.json"
+    with open(ruta, encoding="utf-8") as f:
+        return json.load(f)["palabras"]
 
 def run(args, nick):
     import state
@@ -75,8 +107,8 @@ def run(args, nick):
 
 def handle_input(texto, nick):
     import state
-    d      = state.game_data
-    texto  = texto.strip().lower()
+    d       = state.game_data
+    texto   = texto.strip().lower()
     palabra = d["palabra"]
 
     # Ignorar mensajes con espacios o más largos que la palabra
@@ -91,16 +123,18 @@ def handle_input(texto, nick):
     if d["jugadores"][nick]["fallos"] >= MAX_ERRORES:
         return None
 
-    # --- Intento de palabra completa ---
+    # ── Intento de palabra completa ───────────────────────────────────────────
     if len(texto) > 1:
         if texto == palabra:
             puntos = _letras_desconocidas(d) * 5
             _sumar_puntos(nick, puntos)
             lineas = [
-                f"Palabra:  {' '.join(palabra)}",
-                f"CORRECTO! {nick} ha adivinado la palabra: {palabra.upper()}! +{puntos}pts",
-                _score_line(),
+                f"Palabra:  {_word_display(palabra, set(palabra))}",
+                _c(f"CORRECTO! {nick} ha adivinado la palabra: {palabra.upper()}! +{puntos}pts", GREEN, bold=True),
             ]
+            score = _score_line()
+            if score:
+                lineas.append(score)
             state.active_game = None
             state.game_data   = {}
             return lineas
@@ -109,39 +143,41 @@ def handle_input(texto, nick):
             fallos = d["jugadores"][nick]["fallos"]
             lineas = _tablero()
             if fallos >= MAX_ERRORES:
-                lineas.append(f"{nick}: '{texto.upper()}' no es la palabra. GAME OVER!")
+                lineas.append(_c(f"{nick}: '{texto.upper()}' no es la palabra. GAME OVER!", RED, bold=True))
             else:
-                lineas.append(f"{nick}: '{texto.upper()}' no es la palabra. ({fallos}/{MAX_ERRORES})")
+                lineas.append(f"{_c(nick, CYAN)}: '{_c(texto.upper(), RED)}' no es la palabra. ({fallos}/{MAX_ERRORES})")
             if _todos_eliminados(d):
-                lineas.append(f"GAME OVER TOTAL! La palabra era: {palabra.upper()}")
+                lineas.append(_c(f"GAME OVER TOTAL! La palabra era: {palabra.upper()}", RED, bold=True))
                 state.active_game = None
                 state.game_data   = {}
             return lineas
 
-    # --- Letra suelta ---
+    # ── Letra suelta ──────────────────────────────────────────────────────────
     if not texto.isalpha() or len(texto) != 1:
         return None
 
     letra = texto
 
     if letra in d["adivinadas"]:
-        return f"{nick}: la letra '{letra.upper()}' ya fue adivinada."
+        return f"{nick}: la letra '{_c(letra.upper(), YELLOW)}' ya fue adivinada."
 
     if letra in d["falladas"]:
-        return f"{nick}: la letra '{letra.upper()}' ya fue usada."
+        return f"{nick}: la letra '{_c(letra.upper(), RED)}' ya fue usada."
 
     if letra in palabra:
-        puntos = _letras_desconocidas(d) * 5   # letras únicas aún desconocidas antes de este acierto
+        puntos = _letras_desconocidas(d) * 5
         d["adivinadas"].add(letra)
         lineas = _tablero()
         if all(c in d["adivinadas"] for c in palabra):
             _sumar_puntos(nick, puntos)
-            lineas.append(f"GANASTEIS! La palabra era: {palabra.upper()} - felicidades {nick}! +{puntos}pts")
-            lineas.append(_score_line())
+            lineas.append(_c(f"GANASTEIS! La palabra era: {palabra.upper()} - felicidades {nick}! +{puntos}pts", GREEN, bold=True))
+            score = _score_line()
+            if score:
+                lineas.append(score)
             state.active_game = None
             state.game_data   = {}
         else:
-            lineas.append(f"{nick}: '{letra.upper()}' ACIERTO!")
+            lineas.append(f"{_c(nick, CYAN)}: '{_c(letra.upper(), GREEN, bold=True)}' ACIERTO!")
         return lineas
     else:
         d["falladas"].add(letra)
@@ -149,11 +185,11 @@ def handle_input(texto, nick):
         fallos = d["jugadores"][nick]["fallos"]
         lineas = _tablero()
         if fallos >= MAX_ERRORES:
-            lineas.append(f"{nick}: '{letra.upper()}' fallo. GAME OVER para {nick}!")
+            lineas.append(_c(f"{nick}: '{letra.upper()}' fallo. GAME OVER para {nick}!", RED, bold=True))
         else:
-            lineas.append(f"{nick}: '{letra.upper()}' fallo. ({fallos}/{MAX_ERRORES})")
+            lineas.append(f"{_c(nick, CYAN)}: '{_c(letra.upper(), RED, bold=True)}' fallo. ({fallos}/{MAX_ERRORES})")
         if _todos_eliminados(d):
-            lineas.append(f"GAME OVER TOTAL! La palabra era: {palabra.upper()}")
+            lineas.append(_c(f"GAME OVER TOTAL! La palabra era: {palabra.upper()}", RED, bold=True))
             state.active_game = None
             state.game_data   = {}
         return lineas
