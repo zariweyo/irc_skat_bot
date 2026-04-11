@@ -2,7 +2,7 @@
 
 Guía de contexto completa para continuar el desarrollo en nuevas sesiones.
 
-> **IMPORTANTE:** Cualquier cambio en la aplicación (nuevos comandos, modificaciones de arquitectura, nuevos canales, cambios en el despliegue, etc.) debe reflejarse en este fichero antes de cerrar la sesión. Este documento es la fuente de verdad para retomar el desarrollo en futuras sesiones.
+> **IMPORTANTE:** Cualquier commit nuevo en la aplicación (nuevos comandos, modificaciones de arquitectura, nuevos canales, cambios en el despliegue, etc.) debe reflejarse en este fichero junto con el commit. Este documento es la fuente de verdad para retomar el desarrollo en futuras sesiones.
 
 ---
 
@@ -58,6 +58,14 @@ irc_bot/
 - Al arrancar, envía un saludo genérico a cada canal.
 - Cuando un usuario hace JOIN, envía el mensaje `welcome` del canal con `%NICK%` sustituido.
 - Si el canal tiene `initial` configurado, inyecta ese comando en la queue del canal al arrancar.
+
+### Reconexión automática (`bot.py`)
+
+El punto de entrada `__main__` ejecuta `main()` en un bucle infinito:
+- Cualquier excepción (error de socket, SSL, timeout de registro, conexión cerrada) → espera **60 segundos** y reintenta.
+- `KeyboardInterrupt` → sale limpiamente.
+- `main()` usa `try/finally` para garantizar que el socket se cierra y los workers paran siempre, tanto en error como en salida limpia.
+- Detección de desconexión: si `sock.recv()` devuelve datos vacíos, lanza `ConnectionError` para forzar el retry.
 
 ### Threading
 

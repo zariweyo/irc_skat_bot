@@ -139,9 +139,8 @@ def main():
                 print(f"Nick asignado: {actual_nick}")
 
     if not registered:
-        print("No se pudo registrar en el servidor.")
         sock.close()
-        return
+        raise ConnectionError("No se pudo registrar en el servidor (timeout).")
 
     # Unirse a todos los canales
     for channel in CHANNELS:
@@ -177,6 +176,8 @@ def main():
                 data = sock.recv(4096).decode("utf-8", errors="ignore")
             except socket.timeout:
                 continue
+            if not data:
+                raise ConnectionError("Conexión cerrada por el servidor.")
 
             for line in data.split("\r\n"):
                 if not line:
@@ -204,14 +205,16 @@ def main():
 
     except KeyboardInterrupt:
         print("\nInterrumpido por el usuario.")
-
-    # Parar workers
-    for q in queues.values():
-        q.put(None)
-
-    send(sock, "QUIT :hasta luego!")
-    sock.close()
-    print("Desconectado.")
+        raise
+    finally:
+        for q in queues.values():
+            q.put(None)
+        try:
+            send(sock, "QUIT :hasta luego!")
+        except Exception:
+            pass
+        sock.close()
+        print("Desconectado.")
 
 def _global_excepthook(exc_type, exc_value, exc_tb):
     msg = f"ERR: {exc_type.__name__}: {exc_value}"
@@ -221,4 +224,13 @@ def _global_excepthook(exc_type, exc_value, exc_tb):
 sys.excepthook = _global_excepthook
 
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            main()
+            break
+        except KeyboardInterrupt:
+            break
+        except Exception as e:
+            print(f"[ERROR] {type(e).__name__}: {e}. Reintentando en 60 segundos...")
+            traceback.print_exc()
+            time.sleep(60)
