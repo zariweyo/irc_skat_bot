@@ -20,6 +20,18 @@ def _on_timeout(channel: str) -> None:
     _timers.pop(channel, None)
     bus.emit(channel, {"msg": "__timeout__", "nick": ""})
 
+def _on_restart(channel: str) -> None:
+    import bus
+    _timers.pop(channel, None)
+    bus.emit(channel, {"cmd": "ahorcado", "args": []})
+
+def _schedule_restart(channel: str, delay: int = 10) -> None:
+    cancel_timer(channel)
+    t = threading.Timer(delay, _on_restart, args=(channel,))
+    t.daemon = True
+    t.start()
+    _timers[channel] = t
+
 def _reset_timer(channel: str) -> None:
     cancel_timer(channel)
     t = threading.Timer(TIMEOUT_SECS, _on_timeout, args=(channel,))
@@ -59,7 +71,7 @@ def _linea_jugador(nick, fallos):
     vidas = MAX_ERRORES - fallos
     if fallos >= MAX_ERRORES:
         return f"{_c(nick, CYAN, bold=True)}: {_c('GAME OVER', RED, bold=True)}"
-    hearts = _c("♥" * vidas, GREEN) + _c("♥" * fallos, DGRAY)
+    hearts = _c("♥" * vidas, GREEN) + _c("✗" * fallos, RED)
     return f"{_c(nick, CYAN, bold=True)}: {hearts} ({fallos}/{MAX_ERRORES})"
 
 def _tablero(nick_iniciador=None):
@@ -204,9 +216,10 @@ def handle_input(texto, nick):
             score = _score_line()
             if score:
                 lineas.append(score)
-            cancel_timer(state.current_channel)
+            lineas.append(_c("Nueva partida en 10 segundos...", YELLOW))
             state.active_game = None
             state.game_data   = {}
+            _schedule_restart(state.current_channel)
             return lineas
         else:
             d["jugadores"][nick]["fallos"] += 1
@@ -218,9 +231,10 @@ def handle_input(texto, nick):
                 lineas.append(f"{_c(nick, CYAN)}: '{_c(texto.upper(), RED)}' no es la palabra. ({fallos}/{MAX_ERRORES})")
             if _todos_eliminados(d):
                 lineas.append(_c(f"GAME OVER TOTAL! La palabra era: {palabra.upper()}", RED, bold=True))
-                cancel_timer(state.current_channel)
+                lineas.append(_c("Nueva partida en 10 segundos...", YELLOW))
                 state.active_game = None
                 state.game_data   = {}
+                _schedule_restart(state.current_channel)
             return lineas
 
     # ── Letra suelta ──────────────────────────────────────────────────────────
@@ -245,9 +259,10 @@ def handle_input(texto, nick):
             score = _score_line()
             if score:
                 lineas.append(score)
-            cancel_timer(state.current_channel)
+            lineas.append(_c("Nueva partida en 10 segundos...", YELLOW))
             state.active_game = None
             state.game_data   = {}
+            _schedule_restart(state.current_channel)
         else:
             lineas.append(f"{_c(nick, CYAN)}: '{_c(letra.upper(), GREEN, bold=True)}' ACIERTO!")
         return lineas
@@ -262,7 +277,8 @@ def handle_input(texto, nick):
             lineas.append(f"{_c(nick, CYAN)}: '{_c(letra.upper(), RED, bold=True)}' fallo. ({fallos}/{MAX_ERRORES})")
         if _todos_eliminados(d):
             lineas.append(_c(f"GAME OVER TOTAL! La palabra era: {palabra.upper()}", RED, bold=True))
-            cancel_timer(state.current_channel)
+            lineas.append(_c("Nueva partida en 10 segundos...", YELLOW))
             state.active_game = None
             state.game_data   = {}
+            _schedule_restart(state.current_channel)
         return lineas
