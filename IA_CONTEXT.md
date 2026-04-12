@@ -24,11 +24,12 @@ irc_bot/
 ├── fly.toml
 ├── requirements.txt
 └── app/
-    ├── bot.py              # Núcleo: conexión SSL, loop principal, routing
+    ├── bot.py              # Núcleo: conexión SSL, loop principal, routing, PM worker
     ├── bus.py              # Bus de eventos interno (timers → workers via queue)
     ├── channels.py         # Carga channels.json, filtra comandos, welcome, initial
     ├── channels.json       # Configuración de canales (comandos, welcome, initial)
     ├── db.py               # SQLite: init, add_points, get_top, get_player_total
+    ├── ia.py               # Sesiones IA por query privado (OpenAI API)
     ├── state.py            # Estado thread-local por canal (active_game, game_data, scores)
     ├── debug.py            # Simulador IRC local sin conexión al servidor
     ├── healthcheck.py      # HTTP server en puerto 9180 para Fly.io health checks
@@ -74,6 +75,32 @@ El punto de entrada `__main__` ejecuta `main()` en un bucle infinito:
 - El lector principal enruta cada `PRIVMSG` al worker del canal correspondiente.
 - `state.py` usa `threading.local()` para que cada canal tenga su propio `active_game` y `game_data`.
 - Los workers también procesan **eventos internos** (tipo `dict`) inyectados en su queue, usados por timers y comandos iniciales.
+
+### Sesiones IA por query privado (`ia.py`)
+
+Cuando un usuario abre un **query (mensaje privado)** al bot:
+1. El bot responde únicamente `Contraseña`.
+2. Si el usuario envía la contraseña correcta → sesión activa con ChatGPT (OpenAI API).
+3. Si la contraseña es incorrecta → sesión cancelada.
+4. Los mensajes siguientes en el PM se envían a OpenAI y la respuesta vuelve al query.
+5. Si el usuario hace QUIT del servidor IRC → la sesión se cierra automáticamente.
+
+**Variables de entorno:**
+- `IA_PASSWORD` — contraseña de acceso
+- `GROQ_API_KEY` — clave API de Groq
+- `IA_MODEL` — modelo (por defecto: `llama-3.3-70b-versatile`)
+- `IA_ADMIN_NICK` — único nick autorizado (por defecto: `Iggy`)
+
+**Diseño:**
+- Solo el nick `IA_ADMIN_NICK` (por defecto `Iggy`) puede abrir sesión; el resto se ignora silenciosamente.
+- Comparación de nick case-insensitive.
+- `_pm_sessions = { nick: {"state": "awaiting_password"|"active", "history": [...]} }`
+- Historial limitado a `_MAX_HISTORY = 20` mensajes para evitar token blowup.
+- `bot.py` arranca un hilo `pm_worker` (queue dedicada) para no bloquear el loop lector.
+- El loop principal detecta `PRIVMSG <botnick>` → encola en `pm_queue`.
+- El loop principal detecta `QUIT` → encola `{"quit": nick}` → cierra sesión.
+- No es un comando de canal; no aparece en `steve help`.
+- La IA puede emitir comandos IRC en crudo: líneas que empiecen por `IRC: ` se envían directamente al servidor (JOIN, NICK, KICK, MODE, PRIVMSG, etc.). El `pm_worker` las distingue del texto normal.
 
 ### Bus de eventos (`bus.py`)
 

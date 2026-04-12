@@ -12,6 +12,7 @@ import channels
 import healthcheck
 import db
 import bus
+import ia as ia_mod
 
 healthcheck.start()
 db.init_db()
@@ -106,6 +107,28 @@ def channel_worker(sock, channel, q, actual_nick):
             except Exception:
                 pass
 
+def pm_worker(sock, pm_queue):
+    """Hilo dedicado a mensajes privados al bot (queries IRC)."""
+    while True:
+        item = pm_queue.get()
+        if item is None:
+            break
+        if "quit" in item:
+            ia_mod.close_pm_session(item["quit"])
+            continue
+        nick  = item["nick"]
+        texto = item["text"]
+        respuesta = ia_mod.handle_pm(nick, texto)
+        if respuesta:
+            if isinstance(respuesta, list):
+                for linea in respuesta:
+                    if linea.startswith("IRC: "):
+                        send(sock, linea[5:].strip())  # comando IRC en crudo
+                    else:
+                        send(sock, f"PRIVMSG {nick} :{linea}")
+            else:
+                send(sock, f"PRIVMSG {nick} :{respuesta}")
+
 def main():
     sock = connect()
 
@@ -167,6 +190,10 @@ def main():
         if initial_cmd:
             queues[channel].put({"cmd": initial_cmd, "args": []})
 
+    # Hilo dedicado a mensajes privados (queries IRC → sesión IA)
+    pm_queue = queue.Queue()
+    threading.Thread(target=pm_worker, args=(sock, pm_queue), daemon=True, name="worker-pm").start()
+
     print(f"\nBot activo en {', '.join(CHANNELS)}. Ctrl+C para salir.\n")
 
     # Bucle lector principal: recibe todo y enruta por canal
@@ -197,6 +224,19 @@ def main():
                             if welcome:
                                 send(sock, f"PRIVMSG {join_channel} :{welcome}")
 
+                # Mensaje privado al bot (query IRC → sesión IA)
+                if f"PRIVMSG {actual_nick} :" in line and "!" in line:
+                    pm_nick = line.split("!")[0].lstrip(":")
+                    if pm_nick != actual_nick:
+                        pm_text = line.split(f"PRIVMSG {actual_nick} :", 1)[-1].strip()
+                        pm_queue.put({"nick": pm_nick, "text": pm_text})
+                    continue
+
+                # QUIT — cerrar sesión IA del nick si tenía una abierta
+                if " QUIT " in line and "!" in line:
+                    quit_nick = line.split("!")[0].lstrip(":")
+                    pm_queue.put({"quit": quit_nick})
+
                 line_upper = line.upper()
                 for channel in CHANNELS:
                     if f"PRIVMSG {channel.upper()} :" in line_upper:
@@ -209,6 +249,7 @@ def main():
     finally:
         for q in queues.values():
             q.put(None)
+        pm_queue.put(None)
         try:
             send(sock, "QUIT :hasta luego!")
         except Exception:
